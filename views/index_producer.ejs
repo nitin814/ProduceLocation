@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Location Tracking</title>
+</head>
+<body>
+
+<div id="location"></div>
+
+<script>
+    const socket = new WebSocket('wss://' + window.location.host);
+
+    socket.addEventListener('open', (event) => {
+        startLocationTracking();
+    });
+
+    socket.addEventListener('message', (event) => {
+        const locationData = JSON.parse(event.data);
+        document.getElementById('location').innerHTML = `Latitude: ${locationData.latitude}, Longitude: ${locationData.longitude}`;
+    });
+
+    function showError(error) {
+        let errorMessage = 'Unknown error';
+
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                errorMessage = 'User denied the request for Geolocation.';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMessage = 'Location information is unavailable.';
+                break;
+            case error.TIMEOUT:
+                errorMessage = 'The request to get user location timed out.';
+                break;
+            case error.UNKNOWN_ERROR:
+                errorMessage = 'An unknown error occurred.';
+                break;
+        }
+
+        document.getElementById('location').innerHTML = `Error: ${errorMessage}`;
+    }
+
+    function startLocationTracking() {
+        if ("geolocation" in navigator) {
+            navigator.permissions.query({ name: 'geolocation' }).then(permissionStatus => {
+                if (permissionStatus.state === 'granted') {
+                    getLocation();
+                } else if (permissionStatus.state === 'prompt') {
+                    navigator.geolocation.getCurrentPosition(
+                        () => {
+                            getLocation();
+                        },
+                        () => console.log("Cant get permisison , refresh the page ... ")
+                    );
+                } else {
+                    console.log("THis brower dosent support the website , off ...")
+                }
+            });
+        } else {
+            console.error("Geolocation is not supported by this browser.");
+        }
+    }
+
+    function getLocation() {
+    navigator.geolocation.watchPosition(
+        (position) => {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            document.getElementById('location').innerHTML = `Latitude: ${latitude}, Longitude: ${longitude}`;
+
+            const locationData = { latitude, longitude };
+
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(locationData));
+            } else {
+                console.log('WebSocket is not open yet.');
+            }
+        },
+        (error) => {
+            showError(error);
+        },
+        {
+            enableHighAccuracy: true,
+        }
+        );
+    }
+
+    // Initial call to startLocationTracking
+    startLocationTracking();
+
+</script>
+
+</body>
+</html>
